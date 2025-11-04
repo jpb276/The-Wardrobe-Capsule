@@ -1,0 +1,129 @@
+# Python imports (essential libraries for GUI and image handling))
+from dataclasses import dataclass # For defining data structures
+from typing import Dict, List, Optional # For type hinting
+import os # For handling file paths
+import tkinter as tk # Tkinter for GUI
+from tkinter import ttk # Themed Tkinter widgets
+from PIL import Image, ImageDraw, ImageTk # Pillow for image handling
+
+# Defining a dataclass for clothing items and categories
+@dataclass
+class ClothingItem:
+    id: int
+    name: str
+    category: str
+    color: str
+    suitable_weathers: List[str]
+    image_path: Optional[str] = None # Path to the image file
+
+# Creating the main window 
+class OutfitGeneratorApp:
+    def __init__(self, root: tk.Tk):
+        self.root = root
+        # Title of the window
+        self.root.title("The Wardrobe Capsule") # Title of the application
+        self.root.geometry("400x900") # Window size
+        # Random lists of countries and season options 
+        self.countries = ["Australia", "Italy", "Singapore", "Canada", "Japan", "France", "USA", "UK", "China", "South Korea", "Portugal", "Netherlands"]
+        self.weather_options = ["Summer", "Winter", "Spring", "Autumn"]
+        # Main variables to hold selected country and weather 
+        self.selected_country = tk.StringVar(value="Australia")
+        self.selected_weather = tk.StringVar(value="Summer")
+        # Clothing items data (using placeholder image paths)
+        self.clothing_images = {
+            "tops": ["images/top1.png", "images/top2.png", "images/top3.png", "images/top4.png" ],      
+            "bottoms": ["images/bottom1.png", "images/bottom2.png", "images/bottom3.png", "images/bottom4.png"],
+            "shoes": ["images/shoes1.png", "images/shoes2.png", "images/shoes3.png", "images/shoes4.png"]
+        }
+        self.clothing_indexes = {"tops": 0, "bottoms": 0, "shoes": 0}
+        self.clothing_photoimages = {}  # To keep references to PhotoImage objects
+        self.clothing_image_labels = {} # To access image labels for updating
+        
+        self.setup_ui()
+        
+# Defining the UI setup method 
+    def setup_ui(self) -> None:
+        main = tk.Frame(self.root, bg="#F3F4F6") # main frame
+        main.pack(fill=tk.BOTH, expand=True, padx=10, pady=10) 
+        hdr = tk.Frame(main, bg="#4F46E5") 
+        hdr.pack(fill=tk.X, pady=(0, 10))
+        # Country and Weather selectors 
+        left = tk.Frame(hdr, bg="#4F46E5"); left.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=10, pady=15)
+        tk.Label(left, text="COUNTRY", bg="#4F46E5", fg="#93C5FD", font=("Arial", 12, "bold")).pack(anchor="w")
+        ttk.Combobox(left, textvariable=self.selected_country, values=self.countries, state="readonly").pack(fill=tk.X)
+        right = tk.Frame(hdr, bg="#4F46E5"); right.pack(side=tk.RIGHT, expand=True, fill=tk.BOTH, padx=10, pady=15)
+        tk.Label(right, text="WEATHER", bg="#4F46E5", fg="#93C5FD", font=("Arial", 12, "bold")).pack(anchor="e")
+        weather = ttk.Combobox(right, textvariable=self.selected_weather, values=self.weather_options, state="readonly")
+        weather.pack(fill=tk.X)
+        # Generate Outfit button 
+        generate_btn = tk.Button(main, text="Generate Outfit", bg="#4F46E5", fg="blue", font=("Arial", 12, "bold"),
+                             command=self.generate_outfit)
+        generate_btn.pack(fill=tk.X, pady=(0,20))
+        # Three pairs of clothing selectors (with specified padding to create spacing for clothing display)
+        self.create_clothing_selector(main, "tops", "Tops", "#F3F4F6", pady=(0,90))
+        self.create_clothing_selector(main, "bottoms", "Bottoms", "#F3F4F6", pady=(0,100))
+        self.create_clothing_selector(main, "shoes", "Shoes", "#F3F4F6", pady=(0,100))
+    
+# Method to generate a random outfit
+    def generate_outfit(self):
+        import random 
+        # pick a random item for each category and refresh the displayed image
+        for category, images in self.clothing_images.items():
+            if not images:
+                continue
+            self.clothing_indexes[category] = random.randrange(len(images))
+            self.update_clothing_image(category)
+
+# Method to create clothing selector UI components
+    def create_clothing_selector(self, parent, category, title, bg_color, pady):
+        frame = tk.Frame(parent, bg=bg_color)
+        frame.pack(fill=tk.X, pady=(30,0))
+
+        # Image to apear (above the nav_frame)
+        img_label = tk.Label(frame, bg=bg_color)
+        img_label.pack()
+        self.clothing_image_labels[category] = img_label
+        self.update_clothing_image(category)  # Show the initial image
+
+        # Navigation framing with buttons functions
+        nav_frame = tk.Frame(frame, bg=bg_color)
+        nav_frame.pack(fill=tk.X)
+        tk.Label(nav_frame, text=title, bg=bg_color,).pack(side=tk.LEFT, padx=30)
+        # Left and Right navigation buttons for each clothing items
+        left_btn = ttk.Button(nav_frame, text="◀", command=lambda: self.navigate_item(category, -1))
+        left_btn.pack(side=tk.LEFT, padx=5)
+        right_btn = ttk.Button(nav_frame, text="▶", command=lambda: self.navigate_item(category, 1))
+        right_btn.pack(side=tk.LEFT, padx=5)
+
+# Method to update clothing image based on current index
+    def update_clothing_image(self, category):
+        idx = self.clothing_indexes[category]
+        img_path = self.clothing_images[category][idx]
+        # Making sure that the image path is correct - note: struggled to load images without absolute path
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        abs_img_path = os.path.join(script_dir, img_path)
+        # Loading images and having a fallback in case of error. 
+        try:
+            img = Image.open(abs_img_path).resize((150,150))
+            photo = ImageTk.PhotoImage(img)
+        except Exception as e:
+            print(f"Error loading image {abs_img_path}: {e}") # This will only show up in the Terminal
+            img = Image.new("RGBA", (150, 150), (100, 100, 100, 155))
+            photo = ImageTk.PhotoImage(img)
+        # To ensure the image is displayed correctly  
+        self.clothing_photoimages[category] = photo 
+        self.clothing_image_labels[category].configure(image=photo)
+
+# Clothing navigation method. 
+    def navigate_item(self, category, direction):
+        images = self.clothing_images[category] # Get the list of images 
+        idx = (self.clothing_indexes[category] + direction) % len(images) # Computes the new index by adding direction to the image path - helps with navigating left and right. 
+        self.clothing_indexes[category] = idx # Updates the index
+        self.update_clothing_image(category) # Updates the displayed image
+        
+# Main loop to run the application - Runs the GUI when the script is executed directly. 
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = OutfitGeneratorApp(root)
+    root.lift(); root.attributes("-topmost", True); root.after_idle(root.attributes, "-topmost", False)
+    root.mainloop()
